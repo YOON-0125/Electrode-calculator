@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
@@ -26,12 +25,20 @@
     button:hover { background: #87ceeb; }
     .btn-pair { display: flex; gap: 0.5rem; justify-content: space-between; }
   
-    .grid input { width: 90%; max-width: 160px; margin: auto; }</style>
+    .grid input { width: 90%; max-width: 160px; margin: auto; }
+</style>
 </head>
 <body>
 <h1>Electrode Calculator</h1>
-<label>Enter a Formula</label>
-<input id="formulaInput" placeholder="ex) a + b * c" type="text"/><h2 id="result">F(x)=</h2>
+<label>
+  Enter a Formula
+  <span style="margin-left:1rem;">
+    <a href="#" id="btnDensity" style="color:#6200ea; text-decoration:underline; cursor:pointer;">[전극밀도]</a>
+    <a href="#" id="btnLoading" style="color:#6200ea; text-decoration:underline; cursor:pointer; margin-left:0.5rem;">[로딩레벨]</a>
+  </span>
+</label>
+<input id="formulaInput" placeholder="ex) a + b * c" type="text"/>
+<h2 id="result">F(x)=</h2>
 <div class="grid">
 <input id="a" onclick="this.select()" placeholder="a ="/>
 <input id="b" onclick="this.select()" placeholder="b ="/>
@@ -52,6 +59,20 @@
     const targetSwitch = document.getElementById('targetSwitch');
     const targetValueInput = document.getElementById('targetValue');
     const resultLabel = document.getElementById('result');
+
+    // 전극밀도, 로딩레벨 버튼 클릭 시 수식 자동 입력
+    document.getElementById('btnDensity').addEventListener('click', function(e) {
+      e.preventDefault();
+      // 실제 수식으로 변경 필요
+      document.getElementById('formulaInput').value = '1000*(a-b)/(12*12*3.141592/400)';
+      update();
+    });
+    document.getElementById('btnLoading').addEventListener('click', function(e) {
+      e.preventDefault();
+      // 실제 수식으로 변경 필요
+      document.getElementById('formulaInput').value = '10*(1000*(a-b)/(12*12*3.141592/400))/(c-d)';
+      update();
+    });
 
     function getValues() {
       const values = {};
