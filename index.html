@@ -496,15 +496,16 @@
     <div id="recordScreen" class="content" style="display: none;">
       <div class="section">
         <div class="record-screen-header">
-          <button class="back-btn" onclick="showMainScreen()">← 계산으로</button>
+          <button class="save-btn" onclick="showMainScreen()" style="width: auto; margin-top: 0;">← 계산으로</button>
           <div class="record-actions">
-            <button class="action-btn export-btn" onclick="exportData()">내보내기</button>
-            <button class="action-btn clear-btn" onclick="clearAllRecords()">기록 초기화</button>
+            <button class="action-btn export-btn" onclick="exportData('csv')">CSV</button>
+            <button class="action-btn export-btn" onclick="exportData('json')">JSON</button>
+            <button class="action-btn clear-btn" onclick="clearAllRecords()">삭제</button>
           </div>
         </div>
         
         <div class="record-screen-title">
-          저장된 기록 (<span id="totalRecordsCount">0</span>개)
+          ■ 저장된 기록 (<span class="record-count"><span id="totalRecordsCount">0</span>개</span>)
         </div>
         <div class="weight-note">* 무게는 ×10⁻⁵ 단위로 표시 (예: 0.025249 → 25249)</div>
         
@@ -513,12 +514,12 @@
             <thead class="records-table-header">
               <tr>
                 <th>번호</th>
-                <th>전극<br>무게*</th>
-                <th>전극<br>두께</th>
-                <th>로딩<br>레벨</th>
-                <th>전극<br>밀도</th>
-                <th>구리<br>무게*</th>
-                <th>구리<br>두께</th>
+                <th>전극무게*</th>
+                <th>전극두께</th>
+                <th>로딩레벨</th>
+                <th>전극밀도</th>
+                <th>구리무게*</th>
+                <th>구리두께</th>
                 <th>메모</th>
                 <th></th>
               </tr>
@@ -888,12 +889,12 @@
           <thead class="records-table-header">
             <tr>
               <th>번호</th>
-              <th>전극<br>무게*</th>
-              <th>전극<br>두께</th>
-              <th>로딩<br>레벨</th>
-              <th>전극<br>밀도</th>
-              <th>구리<br>무게*</th>
-              <th>구리<br>두께</th>
+              <th>전극무게*</th>
+              <th>전극두께</th>
+              <th>로딩레벨</th>
+              <th>전극밀도</th>
+              <th>구리무게*</th>
+              <th>구리두께</th>
               <th>메모</th>
             </tr>
           </thead>
@@ -1039,6 +1040,11 @@
     
     // 모든 기록 삭제
     function clearAllRecords() {
+      if (records.length === 0) {
+        showFeedback('삭제할 기록이 없습니다.', 'error');
+        return;
+      }
+      
       if (confirm('모든 기록을 삭제하시겠습니까?')) {
         records = [];
         saveToStorage();
@@ -1048,23 +1054,58 @@
       }
     }
     
-    // 데이터 내보내기
-    function exportData() {
+    // 데이터 내보내기 (CSV 및 JSON 지원)
+    function exportData(format = 'csv') {
       if (records.length === 0) {
         showFeedback('내보낼 데이터가 없습니다.', 'error');
         return;
       }
       
       try {
-        const dataStr = JSON.stringify(records, null, 2);
-        const dataBlob = new Blob([dataStr], {type: 'application/json'});
-        const url = URL.createObjectURL(dataBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `electrode_data_${new Date().toISOString().split('T')[0]}.json`;
-        link.click();
-        URL.revokeObjectURL(url);
-        showFeedback('데이터가 내보내기되었습니다.', 'success');
+        const today = new Date().toISOString().split('T')[0];
+        
+        if (format === 'csv') {
+          // CSV 형태로 내보내기
+          const headers = ['번호', '저장일시', '전극무게(g)', '구리무게(g)', '전극두께(μm)', '구리두께(μm)', '로딩레벨', '전극밀도', '메모'];
+          const csvData = records.map((record, index) => {
+            const recordNumber = records.length - index;
+            return [
+              recordNumber,
+              record.timestamp || '',
+              record.a || '',
+              record.b || '',
+              record.c || '',
+              record.d || '',
+              record.loading || '',
+              record.density || '',
+              record.memo || ''
+            ].join(',');
+          });
+          
+          const csvContent = [headers.join(','), ...csvData].join('\n');
+          const csvBlob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' }); // BOM 추가로 한글 지원
+          const csvUrl = URL.createObjectURL(csvBlob);
+          const csvLink = document.createElement('a');
+          csvLink.href = csvUrl;
+          csvLink.download = `전극데이터_${today}.csv`;
+          csvLink.click();
+          URL.revokeObjectURL(csvUrl);
+          
+          showFeedback('CSV 파일이 다운로드되었습니다.', 'success');
+          
+        } else {
+          // JSON 형태로 내보내기 (기존 방식)
+          const dataStr = JSON.stringify(records, null, 2);
+          const dataBlob = new Blob([dataStr], {type: 'application/json'});
+          const url = URL.createObjectURL(dataBlob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `전극데이터_${today}.json`;
+          link.click();
+          URL.revokeObjectURL(url);
+          
+          showFeedback('JSON 파일이 다운로드되었습니다.', 'success');
+        }
       } catch (e) {
         showFeedback('데이터 내보내기 중 오류가 발생했습니다.', 'error');
       }
