@@ -68,7 +68,15 @@
       gap: 6px;
       margin-bottom: 8px;
     }
-    
+
+    .full-records-container {
+      max-height: calc(100vh - 200px);
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 8px;
+    }
+
     .input-group {
       display: flex;
       flex-direction: column;
@@ -510,23 +518,8 @@
         <div class="weight-note">* 무게는 ×10⁻⁵ 단위로 표시 (예: 0.025249 → 25249)</div>
         
         <div class="full-records-container">
-          <table id="fullRecordsTable" class="full-records-table">
-            <thead class="records-table-header">
-              <tr>
-                <th>번호</th>
-                <th>전극무게*</th>
-                <th>전극두께</th>
-                <th>로딩레벨</th>
-                <th>전극밀도</th>
-                <th>구리무게*</th>
-                <th>구리두께</th>
-                <th>메모</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="fullRecordsBody">
-            </tbody>
-          </table>
+          <div id="groupedRecords">
+          </div>
           
           <div id="noRecordsMessage" class="no-records" style="display: none;">
             저장된 기록이 없습니다.
@@ -915,7 +908,8 @@
                   <td onclick="event.stopPropagation();">
                     <input type="text" class="memo-input" value="${record.memo || ''}" 
                            maxlength="10" placeholder="메모" 
-                           onchange="updateMemo(${index}, this.value)" />
+                           onchange="updateMemo(${index}, this.value)" 
+                           style="width: 20px !important; max-width: 20px;" />
                   </td>
                 </tr>
               `;
@@ -978,46 +972,116 @@
       document.getElementById('recordScreen').style.display = 'none';
     }
     
-    // 전체 기록 렌더링
+    // 전체 기록 렌더링 (날짜별 그룹핑)
     function renderFullRecords() {
-      const tbody = document.getElementById('fullRecordsBody');
+      const container = document.getElementById('groupedRecords');
       const countElement = document.getElementById('totalRecordsCount');
       const noRecordsMessage = document.getElementById('noRecordsMessage');
       
       countElement.textContent = records.length;
       
       if (records.length === 0) {
-        tbody.innerHTML = '';
+        container.innerHTML = '';
         noRecordsMessage.style.display = 'block';
         return;
       }
       
       noRecordsMessage.style.display = 'none';
       
-      tbody.innerHTML = records.map((record, index) => {
-        const recordNumber = records.length - index;
-        const isRecent = index < 3; // 최근 3개 기록
+      // 날짜별로 그룹핑
+      const groups = groupByDate(records);
+      
+      container.innerHTML = groups.map(group => {
+        const copperWeightText = group.copperWeight ? `${group.copperWeight}g` : '다양';
+        const copperThicknessText = group.copperThickness ? `${group.copperThickness}㎛` : '다양';
         
         return `
-          <tr class="${isRecent ? 'recent' : ''}" onclick="loadRecordFromFull(${index})">
-            <td class="record-number">#${recordNumber}</td>
-            <td>${formatWeightForDisplay(record.a)}</td>
-            <td>${record.c || '-'}</td>
-            <td>${record.loading.toFixed(settings.resultDecimalPlaces)}</td>
-            <td>${record.density ? record.density.toFixed(settings.resultDecimalPlaces) : '-'}</td>
-            <td>${formatWeightForDisplay(record.b)}</td>
-            <td>${record.d || '-'}</td>
-            <td onclick="event.stopPropagation();">
-              <input type="text" class="full-memo-input" value="${record.memo || ''}" 
-                     maxlength="10" placeholder="메모" 
-                     onchange="updateMemo(${index}, this.value)" />
-            </td>
-            <td onclick="event.stopPropagation();">
-              <button class="delete-record-btn" onclick="deleteRecord(${index})" title="삭제">×</button>
-            </td>
-          </tr>
+          <div class="date-group">
+            <div class="date-group-header">
+              ■ ${group.date} (구리: ${copperWeightText}, ${copperThicknessText}) - ${group.records.length}개 기록
+            </div>
+            <table class="date-group-table">
+              <thead>
+                <tr>
+                  <th>번호</th>
+                  <th>무게*</th>
+                  <th>두께</th>
+                  <th>L.L</th>
+                  <th>E.D</th>
+                  <th>메모</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                ${group.records.map(item => {
+                  const isRecent = item.originalIndex < 3;
+                  return `
+                    <tr class="${isRecent ? 'recent' : ''}" onclick="loadRecordFromFull(${item.originalIndex})">
+                      <td class="record-number">#${item.recordNumber}</td>
+                      <td>${formatWeightForDisplay(item.record.a)}</td>
+                      <td>${item.record.c || '-'}</td>
+                      <td>${item.record.loading.toFixed(settings.resultDecimalPlaces)}</td>
+                      <td>${item.record.density ? item.record.density.toFixed(settings.resultDecimalPlaces) : '-'}</td>
+                      <td onclick="event.stopPropagation();">
+                        <input type="text" class="full-memo-input" value="${item.record.memo || ''}" 
+                               maxlength="10" placeholder="메모" 
+                               onchange="updateMemo(${item.originalIndex}, this.value)" 
+                               style="width: 20px !important; max-width: 20px;" />
+                      </td>
+                      <td onclick="event.stopPropagation();">
+                        <button class="delete-record-btn" onclick="deleteRecord(${item.originalIndex})" title="삭제">×</button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
         `;
       }).join('');
+    }
+    
+    // 날짜별 그룹핑 함수
+    function groupByDate(records) {
+      const groups = {};
+      
+      records.forEach((record, index) => {
+        const recordNumber = records.length - index;
+        const date = record.timestamp ? record.timestamp.split(' ')[0] : '날짜 없음';
+        
+        if (!groups[date]) {
+          groups[date] = {
+            date: date,
+            records: [],
+            copperWeights: new Set(),
+            copperThicknesses: new Set()
+          };
+        }
+        
+        groups[date].records.push({
+          record: record,
+          recordNumber: recordNumber,
+          originalIndex: index
+        });
+        
+        // 구리값 수집
+        if (record.b) groups[date].copperWeights.add(record.b.toFixed(5));
+        if (record.d) groups[date].copperThicknesses.add(record.d.toString());
+      });
+      
+      // 그룹별 공통 구리값 계산
+      return Object.values(groups).map(group => {
+        // 모든 구리무게가 같으면 공통값으로 표시
+        const uniqueWeights = Array.from(group.copperWeights);
+        const uniqueThicknesses = Array.from(group.copperThicknesses);
+        
+        return {
+          date: group.date,
+          records: group.records,
+          copperWeight: uniqueWeights.length === 1 ? uniqueWeights[0] : null,
+          copperThickness: uniqueThicknesses.length === 1 ? uniqueThicknesses[0] : null
+        };
+      }).sort((a, b) => new Date(b.date) - new Date(a.date)); // 최신 날짜 순
     }
     
     // 전체 기록에서 기록 불러오기 (메인 화면으로 이동)
