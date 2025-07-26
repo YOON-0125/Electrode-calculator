@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>전극 계산기 beta</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+    html, body { height: 100vh; overflow: hidden; background: #f5f5f5; }
+    header { height: 8%; background: #007acc; color: white; display: flex; align-items: center; justify-content: center; font-size: 1.2em; }
+    main { height: 82%; display: flex; flex-direction: column; align-items: center; padding: 10px; overflow-y: auto; width: 100%; }
+    .row { display: flex; justify-content: space-between; margin: 5px 0; width: 100%; flex-wrap: wrap; }
+    .input-group { flex: 0 0 48%; display: flex; flex-direction: column; margin-bottom: 10px; }
+    input[type=number], .result-input { 
+      width: 100%; 
+      padding: 12px 8px; 
+      font-size: 16px; /* iOS 줌 방지 */
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    input:disabled, .result-input.disabled { background: #ddd; color: #999; }
+    .result-input { text-align: center; background: #eee; border: none; }
+    .error { border-color: #e74c3c !important; background-color: #fdf2f2 !important; }
+    .error-message { color: #e74c3c; font-size: 0.8em; margin-top: 2px; min-height: 1em; }
+    button { padding: 10px; margin: 5px 0; width: 100%; font-size: 1em; border: none; border-radius: 4px; }
+    .inverse-btn { background: #007acc; color: white; font-weight: bold; }
+    .inverse-btn:disabled { background: #ccc; }
+    nav { height: 10%; display: flex; justify-content: space-around; align-items: center; background: #ddd; position: absolute; bottom: 0; width: 100%; }
+    nav button { flex: 1; height: 100%; border: none; background: #ccc; }
+    nav button.active { background: #007acc; color: white; font-weight: bold; }
+    .instruction { padding: 10px; background: #fff; border: 1px solid #ccc; font-size: 0.95em; margin-top: 5px; width: 100%; overflow-y: auto; }
+    .section-label { font-weight: bold; margin: 10px 0 5px 0; width: 100%; }
+    .highlight { background-color: #fff8dc !important; color: #007acc !important; font-weight: bold; }
+    .calculation-steps { background: #f8f9fa; padding: 8px; margin: 5px 0; border-radius: 4px; font-size: 0.9em; }
+    .save-feedback {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+      padding: 8px 12px;
+      border-radius: 4px;
+      margin: 5px 0;
+      text-align: center;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .save-feedback.show {
+      opacity: 1;
+    }
+    .recordTableHeader, .recordRow {
+      display: grid;
+      grid-template-columns: 40px 80px 70px 80px 80px 80px 70px 60px 30px;
+      padding: 12px 4px;
+      border-bottom: 1px solid #ccc;
+      align-items: center;
+      min-height: 50px;
+    }
+    .recordTableHeader { 
+      font-weight: bold; 
+      background: #f0f0f0; 
+      font-size: 0.9em;
+    }
+    .recordRow:nth-child(even) { 
+      background-color: #f9f9f9; 
+    }
+    .recordRow:nth-child(odd) { 
+      background-color: #ffffff; 
+    }
+    .recordRow:hover { 
+      background-color: #e3f2fd !important; 
+      cursor: pointer;
+    }
+    .recent-record {
+      border-left: 4px solid #007acc;
+    }
+    .memo-input {
+      width: 100%;
+      padding: 4px;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      font-size: 0.8em;
+      max-length: 10;
+    }
+    .record-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .clear-records-btn {
+      background: #dc3545;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 0.8em;
+      cursor: pointer;
+    }
+    .clear-records-btn:hover {
+      background: #c82333;
+    }
+    .delete-btn {
+      background: #dc3545;
+      color: white;
+      border: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+    .delete-btn:hover {
+      opacity: 1;
+      background: #c82333;
+    }
+    .weight-note {
+      font-size: 0.75em;
+      color: #666;
+      margin-bottom: 5px;
+      text-align: left;
+    }
+
+    @media (max-width: 600px) {
+      .row { flex-direction: column; }
+      .input-group { width: 100%; }
+      button, input, label { font-size: 1.1em; }
+      nav { flex-direction: column; height: auto; }
+      nav button { width: 100%; height: auto; padding: 10px; font-size: 1em; }
+    }
+  </style>
+</head>
+<body>
+  <header>전극 계산기 beta</header>
+  <main>
+    <div id="inputSection">
+      <div class="section-label">■ 측정값</div>
+      <div class="row">
+        <div class="input-group">
+          <label>전극무게 [g]</label>
+          <input id="a" type="number" inputmode="decimal" step="0.000001" 
+                 placeholder="0.000000" 
+                 oninput="handleWeightInput(this)" 
+                 onblur="formatWeightOnBlur(this)"
+                 onfocus="selectOnFocus(this)" />
+          <div class="error-message" id="error-a"></div>
+        </div>
+        <div class="input-group">
+          <label>구리무게 [g]</label>
+          <input id="b" type="number" inputmode="decimal" step="0.000001" 
+                 placeholder="0.000000" 
+                 oninput="handleWeightInput(this)" 
+                 onblur="formatWeightOnBlur(this)"
+                 onfocus="selectOnFocus(this)" />
+          <div class="error-message" id="error-b"></div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="input-group">
+          <label>전극두께 [μm]</label>
+          <input id="c" type="number" inputmode="decimal" step="0.1" 
+                 placeholder="0.0" 
+                 oninput="handleThicknessInput(this)" 
+                 onblur="formatThicknessOnBlur(this)"
+                 onfocus="selectOnFocus(this)" />
+          <div class="error-message" id="error-c"></div>
+        </div>
+        <div class="input-group">
+          <label>구리두께 [μm]</label>
+          <input id="d" type="number" inputmode="decimal" step="0.1" 
+                 placeholder="0.0" 
+                 oninput="handleThicknessInput(this)" 
+                 onblur="formatThicknessOnBlur(this)"
+                 onfocus="selectOnFocus(this)" />
+          <div class="error-message" id="error-d"></div>
+        </div>
+      </div>
+
+      <div class="section-label">■ 계산값</div>
+      <div class="row">
+        <div class="input-group">
+          <label>로딩레벨</label>
+          <input class="result-input" id="loadingResult" type="number" 
+                 inputmode="decimal" step="0.01" placeholder="0.00" />
+          <button class="inverse-btn" id="reverseLoadingBtn" onclick="reverseLoading()">전극무게역산</button>
+        </div>
+        <div class="input-group">
+          <label>전극밀도</label>
+          <input class="result-input" id="densityResult" type="number" 
+                 inputmode="decimal" step="0.01" placeholder="0.00" />
+          <button class="inverse-btn" id="reverseDensityBtn" onclick="reverseDensity()">전극두께역산</button>
+        </div>
+      </div>
+      <div id="calculationSteps" class="calculation-steps" style="display:none;"></div>
+      <div id="saveFeedback" class="save-feedback"></div>
+      <div style="width:100%; text-align:center;">
+        <button id="saveBtn" onclick="saveRecord()">계산값 저장</button>
+      </div>
+      <div class="instruction">
+        <p>사용자 설명 영역입니다. 탭을 눌러 기능을 전환하세요.</p>
+        <ul>
+          <li>로딩레벨 = 1000 × (전극무게 - 구리무게) / (지름² × π / 400)</li>
+          <li>전극밀도 = 10 × 로딩레벨 / (전극두께 - 구리두께)</li>
+        </ul>
+      </div>
+    </div>
+    <div id="recordArea" style="display:none"></div>
+    <div id="settingsArea" style="display:none">
+      <div class="section-label">■ 설정</div>
+      <div class="input-group">
+        <label>전극 지름 [mm]</label>
+        <input id="settingDiameter" type="number" inputmode="decimal" value="12" onchange="updateSettings()" />
+      </div>
+      <div class="input-group">
+        <label>소수점 자릿수</label>
+        <input id="settingPrecision" type="number" inputmode="numeric" value="6" onchange="updateSettings()" />
+      </div>
+      <div class="input-group">
+        <label>최대 기록 수</label>
+        <input id="settingMaxRecord" type="number" inputmode="numeric" value="50" onchange="updateSettings()" />
+      </div>
+      <div style="width:100%; text-align:center; margin-top:10px;">
+        <button onclick="clearAllData()">모든 데이터 삭제</button>
+        <button onclick="exportData()">데이터 내보내기</button>
+      </div>
+    </div>
+  </main>
+  <nav>
+    <button onclick="switchTab('density', this)" class="active">전극밀도</button>
+    <button onclick="switchTab('revLoading', this)">전극무게역산</button>
+    <button onclick="switchTab('revDensity', this)">전극두께역산</button>
+    <button onclick="switchTab('record', this)">기록</button>
+    <button onclick="switchTab('settings', this)">설정</button>
+  </nav>
+
+  <script>
+    const settings = {
+      electrodeDiameter: 12,
+      weightDecimalPlaces: 6,
+      thicknessDecimalPlaces: 1,
+      resultDecimalPlaces: 2,
+      maxRecords: 50
+    };
+    let records = [];
+    let currentTab = 'density';
+
+    // 페이지 로드 시 저장된 데이터 복원
+    window.addEventListener('load', function() {
+      loadFromStorage();
+      updateTabInputs();
+    });
+
+    // 데이터 영속성
+    function saveToStorage() {
+      try {
+        localStorage.setItem('electrodeRecords', JSON.stringify(records));
+        localStorage.setItem('electrodeSettings', JSON.stringify(settings));
+      } catch (e) {
+        console.warn('데이터 저장 실패:', e);
+      }
+    }
+
+    function loadFromStorage() {
+      try {
+        const savedRecords = localStorage.getItem('electrodeRecords');
+        const savedSettings = localStorage.getItem('electrodeSettings');
+        
+        if (savedRecords) {
+          records = JSON.parse(savedRecords);
+        }
+        if (savedSettings) {
+          Object.assign(settings, JSON.parse(savedSettings));
+          document.getElementById('settingDiameter').value = settings.electrodeDiameter;
+          document.getElementById('settingPrecision').value = settings.weightDecimalPlaces;
+          document.getElementById('settingMaxRecord').value = settings.maxRecords;
+        }
+      } catch (e) {
+        console.warn('데이터 로드 실패:', e);
+      }
+    }
+
+    function getValue(id) {
+      const val = parseFloat(document.getElementById(id).value);
+      return isNaN(val) ? 0 : val;
+    }
+
+    function getPIFactor() {
+      const d = settings.electrodeDiameter;
+      return d * d * Math.PI / 400;
+    }
+
+    // 에러 처리
+    function showError(fieldId, message) {
+      const field = document.getElementById(fieldId);
+      const errorDiv = document.getElementById(`error-${fieldId}`);
+      
+      field.classList.add('error');
+      if (errorDiv) {
+        errorDiv.textContent = message;
+      }
+    }
+
+    function clearError(fieldId) {
+      const field = document.getElementById(fieldId);
+      const errorDiv = document.getElementById(`error-${fieldId}`);
+      
+      field.classList.remove('error');
+      if (errorDiv) {
+        errorDiv.textContent = '';
+      }
+    }
+
+    function clearAllErrors() {
+      ['a', 'b', 'c', 'd'].forEach(clearError);
+    }
+
+    // 입력 검증 (최소한으로 제한)
+    function validateInput(value, fieldName) {
+      if (isNaN(value)) {
+        throw new Error(`숫자를 입력해주세요`);
+      }
+      if (value < 0) {
+        throw new Error(`음수는 입력할 수 없습니다`);
+      }
+      // 극단적인 경우만 제한
+      if (value > 1000) {
+        throw new Error(`값이 너무 큽니다`);
+      }
+    }
+
+    // 입력 처리
+    function selectOnFocus(element) {
+      // 기존 동작 유지하되 더 부드럽게
+      setTimeout(() => {
+        element.select();
+      }, 50);
+    }
+
+    function handleWeightInput(element) {
+      clearError(element.id);
+      try {
+        const value = parseFloat(element.value);
+        if (!isNaN(value)) {
+          validateInput(value, '무게');
+        }
+        updateCalculation();
+      } catch (e) {
+        showError(element.id, e.message);
+      }
+    }
+
+    function handleThicknessInput(element) {
+      clearError(element.id);
+      try {
+        const value = parseFloat(element.value);
+        if (!isNaN(value)) {
+          validateInput(value, '두께');
+        }
+        updateCalculation();
+      } catch (e) {
+        showError(element.id, e.message);
+      }
+    }
+
+    function formatWeightOnBlur(element) {
+      const value = parseFloat(element.value);
+      if (!isNaN(value)) {
+        element.value = value.toFixed(settings.weightDecimalPlaces).replace(/\.?0+$/, '');
+      }
+    }
+
+    function formatThicknessOnBlur(element) {
+      const value = parseFloat(element.value);
+      if (!isNaN(value)) {
+        element.value = value.toFixed(settings.thicknessDecimalPlaces);
+      }
+    }
+
+    function updateSettings() {
+      const oldDiameter = settings.electrodeDiameter;
+      
+      settings.electrodeDiameter = getValue('settingDiameter') || 12;
+      settings.weightDecimalPlaces = Math.max(1, Math.min(10, getValue('settingPrecision'))) || 6;
+      settings.maxRecords = Math.max(1, Math.min(1000, getValue('settingMaxRecord'))) || 50;
+      
+      // 지름이 변경된 경우에만 재계산
+      if (oldDiameter !== settings.electrodeDiameter) {
+        updateCalculation();
+      }
+      
+      saveToStorage();
+    }
+
+    function switchTab(tab, btn) {
+      currentTab = tab;
+      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      
+      document.getElementById('inputSection').style.display = (tab === 'record' || tab === 'settings') ? 'none' : 'block';
+      document.getElementById('recordArea').style.display = (tab === 'record') ? 'block' : 'none';
+      document.getElementById('settingsArea').style.display = (tab === 'settings') ? 'block' : 'none';
+      
+      updateTabInputs();
+      updateCalculation();
+      
+      if (tab === 'record') {
+        renderRecords();
+      }
+    }
+
+    function updateTabInputs() {
+      clearAllErrors();
+      const all = ['a','b','c','d','loadingResult','densityResult'];
+      const highlightMap = {
+        density: ['loadingResult','densityResult'],
+        revLoading: ['a', 'loadingResult'],
+        revDensity: ['c', 'densityResult']
+      };
+      
+      all.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.remove('highlight');
+        if (highlightMap[currentTab]?.includes(id)) {
+          el.classList.add('highlight');
+        }
+      });
+
+      // 입력 필드 활성화/비활성화 상태 조정
+      const loadingField = document.getElementById('loadingResult');
+      const densityField = document.getElementById('densityResult');
+      
+      if (currentTab === 'revLoading') {
+        loadingField.disabled = false;
+        densityField.disabled = true;
+      } else if (currentTab === 'revDensity') {
+        loadingField.disabled = true;
+        densityField.disabled = false;
+      } else {
+        loadingField.disabled = true;
+        densityField.disabled = true;
+      }
+
+      // 버튼 활성화 상태 업데이트
+      document.getElementById('reverseLoadingBtn').disabled = (currentTab !== 'revLoading');
+      document.getElementById('reverseDensityBtn').disabled = (currentTab !== 'revDensity');
+      document.getElementById('saveBtn').disabled = (currentTab !== 'density');
+    }
+
+    function safeDivision(numerator, denominator, operation) {
+      if (Math.abs(denominator) < 1e-10) {
+        throw new Error(`계산 불가: ${operation}`);
+      }
+      return numerator / denominator;
+    }
+
+    function updateCalculation() {
+      const a = getValue('a'), b = getValue('b'), c = getValue('c'), d = getValue('d');
+      
+      // 로딩레벨 계산 (전극무게 + 구리무게만 필요)
+      if (a && b) {
+        try {
+          const loading = safeDivision(1000 * (a - b), getPIFactor(), '로딩레벨 계산');
+          document.getElementById('loadingResult').value = loading.toFixed(settings.resultDecimalPlaces);
+          
+          // 전극밀도 계산 (4개 값 모두 필요)
+          if (c && d) {
+            try {
+              const density = safeDivision(10 * loading, (c - d), '전극밀도 계산');
+              document.getElementById('densityResult').value = density.toFixed(settings.resultDecimalPlaces);
+              
+              // 모든 값이 있을 때만 계산 과정 표시
+              if (currentTab === 'density') {
+                showCalculationSteps(a, b, c, d, loading, density);
+              }
+            } catch (e) {
+              document.getElementById('densityResult').value = '';
+            }
+          } else {
+            document.getElementById('densityResult').value = '';
+            // 로딩레벨만 계산된 경우의 계산 과정 표시
+            if (currentTab === 'density') {
+              showPartialCalculationSteps(a, b, loading);
+            }
+          }
+        } catch (e) {
+          document.getElementById('loadingResult').value = '';
+          document.getElementById('densityResult').value = '';
+        }
+      } else {
+        // 전극무게나 구리무게가 없으면 모든 결과 초기화
+        document.getElementById('loadingResult').value = '';
+        document.getElementById('densityResult').value = '';
+        document.getElementById('calculationSteps').style.display = 'none';
+      }
+    }
+
+    function showCalculationSteps(a, b, c, d, loading, density) {
+      const steps = document.getElementById('calculationSteps');
+      steps.innerHTML = `
+        <strong>계산 과정:</strong><br>
+        로딩레벨 = 1000 × (${a} - ${b}) / ${getPIFactor().toFixed(2)} = ${loading.toFixed(settings.resultDecimalPlaces)}<br>
+        전극밀도 = 10 × ${loading.toFixed(settings.resultDecimalPlaces)} / (${c} - ${d}) = ${density.toFixed(settings.resultDecimalPlaces)}
+      `;
+      steps.style.display = 'block';
+    }
+
+    function showPartialCalculationSteps(a, b, loading) {
+      const steps = document.getElementById('calculationSteps');
+      steps.innerHTML = `
+        <strong>계산 과정:</strong><br>
+        로딩레벨 = 1000 × (${a} - ${b}) / ${getPIFactor().toFixed(2)} = ${loading.toFixed(settings.resultDecimalPlaces)}<br>
+        <span style="color: #999;">전극밀도: 전극두께와 구리두께 입력 필요</span>
+      `;
+      steps.style.display = 'block';
+    }
+
+    function reverseLoading() {
+      if (currentTab !== 'revLoading') return;
+      
+      try {
+        const b = getValue('b'), loading = getValue('loadingResult');
+        if (!loading) {
+          showSaveFeedback('로딩레벨을 입력해주세요.', 'error');
+          return;
+        }
+        
+        const a = (loading * getPIFactor() / 1000) + b;
+        document.getElementById('a').value = a.toFixed(settings.weightDecimalPlaces).replace(/\.?0+$/, '');
+        updateCalculation();
+        showSaveFeedback('전극무게가 역산되었습니다.', 'success');
+      } catch (e) {
+        showError('a', '역산 계산 오류');
+      }
+    }
+
+    function reverseDensity() {
+      if (currentTab !== 'revDensity') return;
+      
+      try {
+        const a = getValue('a'), b = getValue('b'), d = getValue('d'), density = getValue('densityResult');
+        if (!density) {
+          showSaveFeedback('전극밀도를 입력해주세요.', 'error');
+          return;
+        }
+        if (!a || !b) {
+          showSaveFeedback('전극무게와 구리무게를 먼저 입력해주세요.', 'error');
+          return;
+        }
+        
+        const loading = 1000 * (a - b) / getPIFactor();
+        const c = safeDivision(10 * loading, density, '두께 역산') + d;
+        document.getElementById('c').value = c.toFixed(settings.thicknessDecimalPlaces);
+        updateCalculation();
+        showSaveFeedback('전극두께가 역산되었습니다.', 'success');
+      } catch (e) {
+        showError('c', '역산 계산 오류');
+      }
+    }
+
+    function saveRecord() {
+      if (currentTab !== 'density') return;
+      
+      try {
+        const a = getValue('a'), b = getValue('b'), c = getValue('c'), d = getValue('d');
+        const loading = getValue('loadingResult'), density = getValue('densityResult');
+        
+        // 최소한 로딩레벨 계산이 가능해야 저장
+        if (!a || !b || !loading) {
+          showSaveFeedback('전극무게와 구리무게는 필수입니다.', 'error');
+          return;
+        }
+        
+        const record = {
+          timestamp: new Date().toLocaleString(),
+          a, b, c: c || null, d: d || null, 
+          loading, density: density || null,
+          memo: '' // 메모 필드 추가
+        };
+        
+        records.unshift(record);
+        if (records.length > settings.maxRecords) {
+          records = records.slice(0, settings.maxRecords);
+        }
+        
+        saveToStorage();
+        
+        // 저장 완료 피드백
+        const savedRecordNumber = records.length;
+        showSaveFeedback(`기록 #${savedRecordNumber}이 저장되었습니다.`, 'success');
+        
+      } catch (e) {
+        showSaveFeedback('저장 중 오류가 발생했습니다.', 'error');
+      }
+    }
+
+    function showSaveFeedback(message, type) {
+      const feedbackDiv = document.getElementById('saveFeedback');
+      feedbackDiv.textContent = message;
+      
+      // 타입에 따른 스타일 변경
+      if (type === 'error') {
+        feedbackDiv.style.backgroundColor = '#f8d7da';
+        feedbackDiv.style.color = '#721c24';
+        feedbackDiv.style.borderColor = '#f5c6cb';
+      } else {
+        feedbackDiv.style.backgroundColor = '#d4edda';
+        feedbackDiv.style.color = '#155724';
+        feedbackDiv.style.borderColor = '#c3e6cb';
+      }
+      
+      // 애니메이션으로 표시
+      feedbackDiv.classList.add('show');
+      
+      // 3초 후 자동으로 사라짐
+      setTimeout(() => {
+        feedbackDiv.classList.remove('show');
+      }, 3000);
+    }
+
+    function deleteRecord(index) {
+      if (confirm(`기록 #${records.length - index}를 삭제하시겠습니까?`)) {
+        const deletedRecordNumber = records.length - index;
+        records.splice(index, 1);
+        saveToStorage();
+        renderRecords();
+        showSaveFeedback(`기록 #${deletedRecordNumber}이 삭제되었습니다.`, 'success');
+      }
+    }
+
+    function formatWeightForDisplay(weight) {
+      // 0.025249 → "25249"
+      if (!weight || weight === 0) return '-';
+      
+      const weightStr = weight.toString();
+      const match = weightStr.match(/^0\.0*(\d+)$/);
+      
+      if (match) {
+        return match[1]; // 0.0 뒤의 숫자들만 반환
+      }
+      
+      // 패턴이 맞지 않으면 원래 값 반환
+      return weight.toString();
+    }
+
+    function renderRecords() {
+      const area = document.getElementById('recordArea');
+      if (records.length === 0) {
+        area.innerHTML = '<div class="record-header"><h3>저장된 기록</h3></div><p style="text-align:center; padding:20px;">저장된 기록이 없습니다.</p>';
+        return;
+      }
+      
+      let html = `
+        <div class="record-header">
+          <h3>저장된 기록 (${records.length}개)</h3>
+          <button class="clear-records-btn" onclick="clearRecords()">기록 초기화</button>
+        </div>
+        <div class="weight-note">* 무게는 ×10⁻⁵ 단위로 표시 (예: 0.025249 → 25249)</div>
+        <div class="recordTableHeader">
+          <div>번호</div><div>전극무게*</div><div>전극두께</div>
+          <div>로딩레벨</div><div>전극밀도</div><div>구리무게*</div><div>구리두께</div><div>메모</div><div></div>
+        </div>`;
+      
+      html += records.map((r, i) => {
+        const recordNumber = records.length - i;
+        const isRecent = i < 3; // 최근 3개 기록
+        const recentClass = isRecent ? 'recent-record' : '';
+        
+        return `<div class="recordRow ${recentClass}" onclick="loadRecord(${i})">
+          <div>${recordNumber}</div>
+          <div>${formatWeightForDisplay(r.a)}</div>
+          <div>${r.c !== null ? r.c : '-'}</div>
+          <div>${r.loading.toFixed(settings.resultDecimalPlaces)}</div>
+          <div>${r.density !== null ? r.density.toFixed(settings.resultDecimalPlaces) : '-'}</div>
+          <div>${formatWeightForDisplay(r.b)}</div>
+          <div>${r.d !== null ? r.d : '-'}</div>
+          <div><input type="text" class="memo-input" value="${r.memo || ''}" 
+                     maxlength="10" placeholder="메모" 
+                     onchange="updateMemo(${i}, this.value)" 
+                     onclick="event.stopPropagation()"></div>
+          <div><button class="delete-btn" onclick="deleteRecord(${i}); event.stopPropagation();" title="삭제">×</button></div>
+        </div>`;
+      }).join('');
+      
+      area.innerHTML = html;
+    }
+
+    function clearRecords() {
+      if (confirm('모든 기록을 삭제하시겠습니까?')) {
+        records = [];
+        saveToStorage();
+        renderRecords();
+        showSaveFeedback('모든 기록이 삭제되었습니다.', 'success');
+      }
+    }
+
+    function updateMemo(index, memo) {
+      if (records[index]) {
+        records[index].memo = memo.slice(0, 10); // 10자 제한
+        saveToStorage();
+      }
+    }
+
+    function loadRecord(index) {
+      if (currentTab !== 'record') return;
+      
+      const record = records[index];
+      if (!record) return;
+      
+      // 기록 값들을 입력 필드에 로드
+      document.getElementById('a').value = record.a || '';
+      document.getElementById('b').value = record.b || '';
+      document.getElementById('c').value = record.c || '';
+      document.getElementById('d').value = record.d || '';
+      
+      // 전극밀도 탭으로 이동하고 계산 업데이트
+      const densityTab = document.querySelector('nav button:first-child');
+      switchTab('density', densityTab);
+      
+      showSaveFeedback(`기록 #${records.length - index}을 불러왔습니다.`, 'success');
+    }
+
+    function clearAllData() {
+      if (confirm('모든 저장된 데이터를 삭제하시겠습니까?')) {
+        records = [];
+        localStorage.removeItem('electrodeRecords');
+        localStorage.removeItem('electrodeSettings');
+        showSaveFeedback('모든 데이터가 삭제되었습니다.', 'success');
+      }
+    }
+
+    function exportData() {
+      if (records.length === 0) {
+        showSaveFeedback('내보낼 데이터가 없습니다.', 'error');
+        return;
+      }
+      
+      try {
+        const dataStr = JSON.stringify(records, null, 2);
+        const dataBlob = new Blob([dataStr], {type: 'application/json'});
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `electrode_data_${new Date().toISOString().split('T')[0]}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+        showSaveFeedback('데이터가 내보내기되었습니다.', 'success');
+      } catch (e) {
+        showSaveFeedback('데이터 내보내기 중 오류가 발생했습니다.', 'error');
+      }
+    }
+
+    // 초기화
+    document.querySelector('nav button').classList.add('active');
+    updateTabInputs();
+  </script>
+</body>
+</html>
