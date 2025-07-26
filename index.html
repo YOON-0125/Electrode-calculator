@@ -909,7 +909,7 @@
                     <input type="text" class="memo-input" value="${record.memo || ''}" 
                            maxlength="10" placeholder="메모" 
                            onchange="updateMemo(${index}, this.value)" 
-                           style="width: 20px !important; max-width: 20px;" />
+                           style="width: 80px !important; max-width: 80px;" />
                   </td>
                 </tr>
               `;
@@ -1003,8 +1003,8 @@
             <table class="date-group-table">
               <thead>
                 <tr>
-                  <th>번호</th>
-                  <th>무게*</th>
+                  <th>No.</th>
+                  <th>무게</th>
                   <th>두께</th>
                   <th>L.L</th>
                   <th>E.D</th>
@@ -1130,7 +1130,7 @@
         
         if (format === 'csv') {
           // CSV 형태로 내보내기
-          const headers = ['번호', '저장일시', '전극무게(g)', '구리무게(g)', '전극두께(μm)', '구리두께(μm)', '로딩레벨', '전극밀도', '메모'];
+          const headers = ['번호',   '저장일시',   '전극무게(g)',   '구리무게(g)',   '전극두께(μm)',   '구리두께(μm)',   '로딩레벨',   '전극밀도',   '메모'];
           const csvData = records.map((record, index) => {
             const recordNumber = records.length - index;
             return [
