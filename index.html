@@ -18,7 +18,22 @@
       overflow: hidden;
       font-size: 14px;
     }
-    
+ .record-header-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.small-btn-row {
+  margin-top: 6px;
+  margin-bottom: 0;
+}
+.save-btn.small-btn {
+  font-size: 0.9em;
+  padding: 4px 12px;
+  min-height: 28px;
+  background: #28a745;
+}
+   
     .container {
       max-width: 100%;
       margin: 0;
@@ -478,7 +493,7 @@
         <div class="section-title">
           <span id="recentRecordsIcon">▼</span> 최근 기록 (<span id="recentRecordsCount">0</span>개)
         </div>
-        <button class="view-all-btn" onclick="showAllRecords(); event.stopPropagation();">전체 기록</button>
+        <button class="save-btn small-btn" onclick="showAllRecords(); event.stopPropagation();">전체 기록</button>
       </div>
       
       <div id="recentRecordsList" class="recent-records">
@@ -514,10 +529,11 @@
       <div class="section">
         <div class="record-screen-header">
           <button class="save-btn" onclick="showMainScreen()" style="width: auto; margin-top: 0;">← 계산으로</button>
-          <div class="record-actions">
-            <button class="action-btn export-btn" onclick="exportData('csv')">CSV</button>
-            <button class="action-btn export-btn" onclick="exportData('json')">JSON</button>
-            <button class="action-btn clear-btn" onclick="clearAllRecords()">삭제</button>
+          <button class="save-btn" onclick="showCurrentCalcScreen()" style="width: auto; margin-top: 0; margin-left: 8px;">전류값계산</button>
+        <div class="recond-header-row small-btn-row">
+          <button class="save-btn small-btn" onclick="exportData('csv')" style="width: auto; margin-top: 0; margin-left: 8px;">CSV</button>
+          <button class="save-btn small-btn" onclick="exportData('json')" style="width: auto; margin-top: 0; margin-left: 8px;">JSON</button>
+          <button class="save-btn small-btn" onclick="clearAllRecords()" style="width: auto; margin-top: 0; margin-left: 8px;">삭제</button>
           </div>
         </div>
         
@@ -525,6 +541,7 @@
           ■ 저장된 기록 (<span class="record-count"><span id="totalRecordsCount">0</span>개</span>)
         </div>
         <div class="weight-note">* 무게는 ×10⁻⁵ 단위로 표시 (예: 0.025249 → 25249)</div>
+        
         
         <div class="full-records-container">
           <div id="groupedRecords">
@@ -536,6 +553,21 @@
         </div>
       </div>
     </div>
+    
+    <!-- === 추가: 전류값계산 페이지 === -->
+    <div id="currentCalcScreen" class="content" style="display:none;">
+      <div class="section">
+        <button class="save-btn" onclick="showAllRecords()" style="width:auto; margin-bottom:8px;">← 전체기록으로</button>
+        <div class="section-title">■ 전류값 계산</div>
+        <div style="margin-bottom:8px;">
+          <label>활물질비율(%) <input id="activeMaterialRatio" type="number" min="0" max="100" step="0.1" style="width:60px;" /></label>
+          <label style="margin-left:12px;">예상용량(mAh/g) <input id="expectedCapacity" type="number" min="0" step="0.01" style="width:80px;" /></label>
+        </div>
+        <div id="currentCalcFormula" style="margin-bottom:8px; color:#007acc; font-size:0.95em;"></div>
+        <div id="currentCalcTable"></div>
+      </div>
+    </div>
+    <!-- === 전류값계산 페이지 끝 === -->
   </div>
 
   <script>
@@ -558,6 +590,11 @@
       updateSettings(); // 설정 UI 업데이트
       renderRecentRecords();
       updateCalculation();
+      // === 추가: 전류값계산 입력 이벤트 연결 ===
+      if(document.getElementById('activeMaterialRatio') && document.getElementById('expectedCapacity')) {
+        document.getElementById('activeMaterialRatio').addEventListener('input', renderCurrentCalcTable);
+        document.getElementById('expectedCapacity').addEventListener('input', renderCurrentCalcTable);
+      }
     });
     
     // 유틸리티 함수들
@@ -971,6 +1008,7 @@
       currentScreen = 'records';
       document.getElementById('mainScreen').style.display = 'none';
       document.getElementById('recordScreen').style.display = 'block';
+      if(document.getElementById('currentCalcScreen')) document.getElementById('currentCalcScreen').style.display = 'none'; // === 추가
       renderFullRecords();
     }
     
@@ -979,6 +1017,7 @@
       currentScreen = 'main';
       document.getElementById('mainScreen').style.display = 'block';
       document.getElementById('recordScreen').style.display = 'none';
+      if(document.getElementById('currentCalcScreen')) document.getElementById('currentCalcScreen').style.display = 'none'; // === 추가
     }
     
     // 전체 기록 렌더링 (날짜별 그룹핑)
@@ -1237,6 +1276,52 @@
         saveToStorage();
       }
     }
+
+    // === 추가: 전류값계산 페이지 전환 및 표 생성 ===
+    function showCurrentCalcScreen() {
+      document.getElementById('mainScreen').style.display = 'none';
+      document.getElementById('recordScreen').style.display = 'none';
+      document.getElementById('currentCalcScreen').style.display = 'block';
+      // 입력값 초기화 및 표 갱신
+      if(document.getElementById('activeMaterialRatio')) document.getElementById('activeMaterialRatio').value = '';
+      if(document.getElementById('expectedCapacity')) document.getElementById('expectedCapacity').value = '';
+      if(document.getElementById('currentCalcFormula')) document.getElementById('currentCalcFormula').innerHTML = '';
+      if(document.getElementById('currentCalcTable')) document.getElementById('currentCalcTable').innerHTML = '';
+    }
+
+    function renderCurrentCalcTable() {
+      const ratioInput = document.getElementById('activeMaterialRatio');
+      const capInput = document.getElementById('expectedCapacity');
+      const formulaDiv = document.getElementById('currentCalcFormula');
+      const tableDiv = document.getElementById('currentCalcTable');
+      if(!ratioInput || !capInput || !formulaDiv || !tableDiv) return;
+      const ratio = parseFloat(ratioInput.value);
+      const cap = parseFloat(capInput.value);
+      if(isNaN(ratio) || isNaN(cap) || ratio <= 0 || cap <= 0) {
+        formulaDiv.innerHTML = '';
+        tableDiv.innerHTML = '';
+        return;
+      }
+      // 계산식 표기
+      formulaDiv.innerHTML = '계산식: <b>전류밀도 = 활물질비율 × 예상용량 × (전극무게 - 구리무게) × C-rate</b>';
+      // 표 생성
+      const cRates = [0.05, 0.1, 0.2, 0.5, 1, 2, 3];
+      let html = '<table class="records-table"><thead><tr><th>No.</th><th>전극무게</th><th>구리무게</th>';
+      cRates.forEach(c => html += `<th>${c}C</th>`);
+      html += '</tr></thead><tbody>';
+      records.forEach((rec, idx) => {
+        html += `<tr><td>#${records.length - idx}</td><td>${rec.a}</td><td>${rec.b}</td>`;
+        cRates.forEach(c => {
+          const currentDensity = (ratio / 100) * cap * (rec.a - rec.b) * c;
+          html += `<td>${isNaN(currentDensity) ? '-' : currentDensity.toFixed(4)}</td>`;
+        });
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+      tableDiv.innerHTML = html;
+    }
+    // === 전류값계산 기능 끝 ===
+
   </script>
 </body>
 </html>
