@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>전극 계산기 beta</title>
+  <style>
+    * { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+    }
+    
+    html, body { 
+      height: 100vh; 
+      background: #f8f9fa; 
+      overflow: hidden;
+      font-size: 14px;
+    }
+    
+    .container {
+      max-width: 100%;
+      margin: 0;
+      padding: 5px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .header { 
+      background: #007acc; 
+      color: white; 
+      padding: 8px; 
+      text-align: center; 
+      font-size: 1.1em; 
+      font-weight: bold;
+      margin: -5px -5px 8px -5px;
+      flex-shrink: 0;
+    }
+    
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding-bottom: 10px;
+    }
+    
+    .section {
+      background: white;
+      border-radius: 6px;
+      padding: 8px;
+      margin-bottom: 8px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    .section-title {
+      font-weight: bold;
+      font-size: 0.95em;
+      margin-bottom: 8px;
+      color: #333;
+      border-bottom: 1px solid #007acc;
+      padding-bottom: 3px;
+    }
+    
+    .input-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .full-records-container {
+      max-height: calc(100vh - 200px);
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 8px;
+    }
+.recent-records.collapsed {
+  display: none;
+}
+    .input-group {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .input-group label {
+      font-size: 0.8em;
+      color: #555;
+      margin-bottom: 2px;
+      font-weight: 500;
+    }
+    
+    .input-group input {
+      padding: 6px 4px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px; /* iOS 줌 방지 */
+      transition: border-color 0.2s;
+      width: 100%;
+      min-width: 0; /* flex 아이템이 줄어들 수 있도록 */
+    }
+    
+    .input-group input:focus {
+      outline: none;
+      border-color: #007acc;
+      box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.1);
+    }
+    
+    .input-group input:disabled {
+      background: #f8f9fa;
+      color: #666;
+      border-color: #e9ecef;
+    }
+    
+    .mode-selector {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+    
+    .mode-option {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 6px 4px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 0.75em;
+      min-height: 36px;
+      text-align: center;
+    }
+    
+    .mode-option:hover {
+      border-color: #007acc;
+      background: #f0f8ff;
+    }
+    
+    .mode-option.active {
+      border-color: #007acc;
+      background: #007acc;
+      color: white;
+    }
+    
+    .mode-option input[type="radio"] {
+      margin: 0;
+    }
+    
+    .result-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    
+    .result-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    
+    .result-group label {
+      font-size: 0.8em;
+      color: #555;
+      font-weight: 500;
+    }
+    
+    .result-input {
+      padding: 6px 4px;
+      border: 1px solid #28a745;
+      border-radius: 4px;
+      font-size: 14px;
+      text-align: center;
+      background: #f8fff8;
+      font-weight: bold;
+      color: #28a745;
+      width: 100%;
+      min-width: 0;
+    }
+    
+    .reverse-btn {
+      padding: 6px 8px;
+      background: #6c757d;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 0.75em;
+      cursor: pointer;
+      transition: background 0.2s;
+      min-height: 32px;
+    }
+    
+    .reverse-btn:hover:not(:disabled) {
+      background: #5a6268;
+    }
+    
+    .reverse-btn:disabled {
+      background: #dee2e6;
+      color: #6c757d;
+      cursor: not-allowed;
+    }
+    
+    .reverse-btn.active {
+      background: #007acc;
+    }
+    
+    .reverse-btn.active:hover {
+      background: #0056b3;
+    }
+    
+    .save-btn {
+      width: 100%;
+      padding: 10px;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 1em;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-top: 5px;
+    }
+    
+    .save-btn:hover {
+      background: #218838;
+    }
+    
+    .calculation-steps {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      padding: 6px;
+      margin-top: 8px;
+      font-size: 0.75em;
+      line-height: 1.3;
+    }
+    
+    .feedback {
+      padding: 6px;
+      border-radius: 4px;
+      margin-top: 5px;
+      text-align: center;
+      font-weight: 500;
+      font-size: 0.8em;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    
+    .feedback.show {
+      opacity: 1;
+    }
+    
+    .feedback.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .feedback.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .highlight {
+      border-color: #007acc !important;
+      box-shadow: 0 0 0 3px rgba(0, 122, 204, 0.2) !important;
+    }
+    .records-table th,
+.records-table td,
+.date-group-table th,
+.date-group-table td {
+  min-width: 39px;
+  padding: 6px 6px;
+}
+
+    @media (max-width: 600px) {
+      body {
+        font-size: 14px;
+      }
+      
+      .container {
+        padding: 3px;
+      }
+      
+      .header {
+        margin: -3px -3px 6px -3px;
+        padding: 6px;
+        font-size: 1em;
+      }
+      
+      .section {
+        padding: 6px;
+        margin-bottom: 6px;
+      }
+      
+      .mode-option {
+        font-size: 0.7em;
+        padding: 4px 2px;
+        min-height: 32px;
+      }
+      
+      .mode-option span {
+        display: block;
+        line-height: 1.1;
+      }
+      
+      .input-group input {
+        padding: 6px;
+      }
+      
+      .result-input {
+        padding: 6px;
+        font-size: 13px;
+      }
+      
+      .reverse-btn {
+        padding: 4px 6px;
+        font-size: 0.7em;
+        min-height: 28px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">전극 계산기 beta</div>
+    
+    <!-- 메인 화면 -->
+    <div id="mainScreen" class="content">
+    
+    <!-- 측정값 입력 섹션 -->
+    <div class="section">
+      <div class="section-title">■ 측정값</div>
+      
+      <div class="input-row">
+        <div class="input-group">
+          <label for="electrodeWeight">전극무게 [g]</label>
+          <input 
+            id="electrodeWeight" 
+            type="number" 
+            inputmode="decimal" 
+            step="0.000001"
+            placeholder="0.000000"
+            oninput="handleWeightInput(this)"
+            onblur="formatWeightOnBlur(this)"
+            onfocus="selectOnFocus(this)"
+          />
+        </div>
+        <div class="input-group">
+          <label for="copperWeight">구리무게 [g]</label>
+          <input 
+            id="copperWeight" 
+            type="number" 
+            inputmode="decimal" 
+            step="0.000001"
+            placeholder="0.000000"
+            oninput="handleWeightInput(this)"
+            onblur="formatWeightOnBlur(this)"
+            onfocus="selectOnFocus(this)"
+          />
+        </div>
+      </div>
+      
+      <div class="input-row">
+        <div class="input-group">
+          <label for="electrodeThickness">전극두께 [μm]</label>
+          <input 
+            id="electrodeThickness" 
+            type="number" 
+            inputmode="decimal" 
+            step="0.1"
+            placeholder="0.0"
+            oninput="handleThicknessInput(this)"
+            onblur="formatThicknessOnBlur(this)"
+            onfocus="selectOnFocus(this)"
+          />
+        </div>
+        <div class="input-group">
+          <label for="copperThickness">구리두께 [μm]</label>
+          <input 
+            id="copperThickness" 
+            type="number" 
+            inputmode="decimal" 
+            step="0.1"
+            placeholder="0.0"
+            oninput="handleThicknessInput(this)"
+            onblur="formatThicknessOnBlur(this)"
+            onfocus="selectOnFocus(this)"
+          />
+        </div>
+      </div>
+    </div>
+    
+    <!-- 계산 모드 선택 -->
+    <div class="section">
+      <div class="section-title">■ 계산 모드</div>
+      
+      <div class="mode-selector">
+        <label class="mode-option active" onclick="changeMode('normal')">
+          <input type="radio" name="calcMode" value="normal" checked>
+          <span>기본 계산</span>
+        </label>
+        <label class="mode-option" onclick="changeMode('reverseWeight')">
+          <input type="radio" name="calcMode" value="reverseWeight">
+          <span>전극무게 역산</span>
+        </label>
+        <label class="mode-option" onclick="changeMode('reverseThickness')">
+          <input type="radio" name="calcMode" value="reverseThickness">
+          <span>전극두께 역산</span>
+        </label>
+      </div>
+    </div>
+    
+    <!-- 계산 결과 -->
+    <div class="section">
+      <div class="section-title">■ 계산값</div>
+      
+      <div class="result-row">
+        <div class="result-group">
+          <label>로딩레벨</label>
+          <input 
+            id="loadingLevel" 
+            type="number" 
+            class="result-input"
+            inputmode="decimal" 
+            step="0.01"
+            placeholder="0.00"
+            disabled
+          />
+          <button 
+            id="reverseWeightBtn" 
+            class="reverse-btn" 
+            onclick="executeReverse('weight')"
+            disabled
+          >
+            전극무게 역산
+          </button>
+        </div>
+        
+        <div class="result-group">
+          <label>전극밀도</label>
+          <input 
+            id="electrodeDensity" 
+            type="number" 
+            class="result-input"
+            inputmode="decimal" 
+            step="0.01"
+            placeholder="0.00"
+            disabled
+          />
+          <button 
+            id="reverseThicknessBtn" 
+            class="reverse-btn" 
+            onclick="executeReverse('thickness')"
+            disabled
+          >
+            전극두께 역산
+          </button>
+        </div>
+      </div>
+      
+      <div id="calculationSteps" class="calculation-steps" style="display:none;"></div>
+      
+      <button class="save-btn" onclick="saveRecord()">계산값 저장</button>
+      
+      <div id="feedback" class="feedback"></div>
+    </div>
+    
+    <!-- 최근 기록 섹션 -->
+    <div class="section">
+      <div class="section-header" onclick="toggleRecentRecords()">
+        <div class="section-title">
+          <span id="recentRecordsIcon">▼</span> 최근 기록 (<span id="recentRecordsCount">0</span>개)
+        </div>
+        <button class="view-all-btn" onclick="showAllRecords(); event.stopPropagation();">전체 기록</button>
+      </div>
+      
+      <div id="recentRecordsList" class="recent-records">
+        <div class="no-records">저장된 기록이 없습니다.</div>
+      </div>
+    </div>
+    
+    <!-- 설정 섹션 -->
+    <div class="section">
+      <div class="section-title" onclick="toggleSettings()">
+        <span id="settingsIcon">▶</span> 설정
+      </div>
+      
+      <div id="settingsPanel" class="settings-panel" style="display: none;">
+        <div class="setting-row">
+          <label>전극 지름 (mm)</label>
+          <input id="electrodeDiameter" type="number" inputmode="decimal" value="12" onchange="updateSettings()" />
+        </div>
+        <div class="setting-row">
+          <label>소수점 자릿수</label>
+          <input id="decimalPlaces" type="number" inputmode="numeric" value="6" onchange="updateSettings()" />
+        </div>
+        <div class="setting-row">
+          <label>최대 기록 수</label>
+          <input id="maxRecords" type="number" inputmode="numeric" value="50" onchange="updateSettings()" />
+        </div>
+      </div>
+    </div>
+    </div>
+    
+    <!-- 전체 기록 화면 -->
+    <div id="recordScreen" class="content" style="display: none;">
+      <div class="section">
+        <div class="record-screen-header">
+          <button class="save-btn" onclick="showMainScreen()" style="width: auto; margin-top: 0;">← 계산으로</button>
+          <div class="record-actions">
+            <button class="action-btn export-btn" onclick="exportData('csv')">CSV</button>
+            <button class="action-btn export-btn" onclick="exportData('json')">JSON</button>
+            <button class="action-btn clear-btn" onclick="clearAllRecords()">삭제</button>
+          </div>
+        </div>
+        
+        <div class="record-screen-title">
+          ■ 저장된 기록 (<span class="record-count"><span id="totalRecordsCount">0</span>개</span>)
+        </div>
+        <div class="weight-note">* 무게는 ×10⁻⁵ 단위로 표시 (예: 0.025249 → 25249)</div>
+        
+        <div class="full-records-container">
+          <div id="groupedRecords">
+          </div>
+          
+          <div id="noRecordsMessage" class="no-records" style="display: none;">
+            저장된 기록이 없습니다.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 전역 변수
+    const settings = {
+      electrodeDiameter: 12,
+      weightDecimalPlaces: 6,
+      thicknessDecimalPlaces: 1,
+      resultDecimalPlaces: 2,
+      maxRecords: 50
+    };
+    
+    let records = [];
+    let currentMode = 'normal'; // 'normal', 'reverseWeight', 'reverseThickness'
+    let currentScreen = 'main'; // 'main', 'records'
+    
+    // 초기화
+    window.addEventListener('load', function() {
+      loadFromStorage();
+      updateSettings(); // 설정 UI 업데이트
+      renderRecentRecords();
+      updateCalculation();
+    });
+    
+    // 유틸리티 함수들
+    function getValue(id) {
+      const val = parseFloat(document.getElementById(id).value);
+      return isNaN(val) ? 0 : val;
+    }
+    
+    function getPIFactor() {
+      const d = settings.electrodeDiameter;
+      return d * d * Math.PI / 400;
+    }
+    
+    function safeDivision(numerator, denominator, operation) {
+      if (Math.abs(denominator) < 1e-10) {
+        throw new Error(`계산 불가: ${operation}`);
+      }
+      return numerator / denominator;
+    }
+    
+    // 데이터 저장/로드
+    function saveToStorage() {
+      try {
+        localStorage.setItem('electrodeRecords', JSON.stringify(records));
+        localStorage.setItem('electrodeSettings', JSON.stringify(settings));
+      } catch (e) {
+        console.warn('데이터 저장 실패:', e);
+      }
+    }
+    
+    function loadFromStorage() {
+      try {
+        const savedRecords = localStorage.getItem('electrodeRecords');
+        const savedSettings = localStorage.getItem('electrodeSettings');
+        
+        if (savedRecords) {
+          records = JSON.parse(savedRecords);
+        }
+        if (savedSettings) {
+          Object.assign(settings, JSON.parse(savedSettings));
+          // 설정 UI 업데이트는 updateSettings()에서 처리
+        }
+      } catch (e) {
+        console.warn('데이터 로드 실패:', e);
+      }
+    }
+    
+    // 입력 처리
+    function selectOnFocus(element) {
+      setTimeout(() => {
+        element.select();
+      }, 50);
+    }
+    
+    function handleWeightInput(element) {
+      updateCalculation();
+    }
+    
+    function handleThicknessInput(element) {
+      updateCalculation();
+    }
+    
+    function formatWeightOnBlur(element) {
+      const value = parseFloat(element.value);
+      if (!isNaN(value)) {
+        element.value = value.toFixed(settings.weightDecimalPlaces).replace(/\.?0+$/, '');
+      }
+    }
+    
+    function formatThicknessOnBlur(element) {
+      const value = parseFloat(element.value);
+      if (!isNaN(value)) {
+        element.value = value.toFixed(settings.thicknessDecimalPlaces);
+      }
+    }
+    
+    // 모드 변경
+    function changeMode(mode) {
+      currentMode = mode;
+      
+      // 라디오 버튼 업데이트
+      document.querySelectorAll('.mode-option').forEach(option => {
+        option.classList.remove('active');
+      });
+      event.target.closest('.mode-option').classList.add('active');
+      
+      updateModeUI();
+      updateCalculation();
+    }
+    
+    function updateModeUI() {
+      const loadingField = document.getElementById('loadingLevel');
+      const densityField = document.getElementById('electrodeDensity');
+      const weightBtn = document.getElementById('reverseWeightBtn');
+      const thicknessBtn = document.getElementById('reverseThicknessBtn');
+      
+      // 하이라이트 제거
+      document.querySelectorAll('.highlight').forEach(el => {
+        el.classList.remove('highlight');
+      });
+      
+      if (currentMode === 'reverseWeight') {
+        loadingField.disabled = false;
+        densityField.disabled = true;
+        weightBtn.disabled = false;
+        thicknessBtn.disabled = true;
+        weightBtn.classList.add('active');
+        thicknessBtn.classList.remove('active');
+        
+        // 하이라이트
+        document.getElementById('electrodeWeight').classList.add('highlight');
+        loadingField.classList.add('highlight');
+        
+      } else if (currentMode === 'reverseThickness') {
+        loadingField.disabled = true;
+        densityField.disabled = false;
+        weightBtn.disabled = true;
+        thicknessBtn.disabled = false;
+        weightBtn.classList.remove('active');
+        thicknessBtn.classList.add('active');
+        
+        // 하이라이트
+        document.getElementById('electrodeThickness').classList.add('highlight');
+        densityField.classList.add('highlight');
+        
+      } else { // normal
+        loadingField.disabled = true;
+        densityField.disabled = true;
+        weightBtn.disabled = true;
+        thicknessBtn.disabled = true;
+        weightBtn.classList.remove('active');
+        thicknessBtn.classList.remove('active');
+        
+        // 하이라이트
+        loadingField.classList.add('highlight');
+        densityField.classList.add('highlight');
+      }
+    }
+    
+    // 계산
+    function updateCalculation() {
+      const electrodeWeight = getValue('electrodeWeight');
+      const copperWeight = getValue('copperWeight');
+      const electrodeThickness = getValue('electrodeThickness');
+      const copperThickness = getValue('copperThickness');
+      
+      try {
+        // 로딩레벨 계산 (전극무게 + 구리무게만 필요)
+        if (electrodeWeight && copperWeight) {
+          const loading = safeDivision(1000 * (electrodeWeight - copperWeight), getPIFactor(), '로딩레벨 계산');
+          document.getElementById('loadingLevel').value = loading.toFixed(settings.resultDecimalPlaces);
+          
+          // 전극밀도 계산 (4개 값 모두 필요)
+          if (electrodeThickness && copperThickness) {
+            const density = safeDivision(10 * loading, (electrodeThickness - copperThickness), '전극밀도 계산');
+            document.getElementById('electrodeDensity').value = density.toFixed(settings.resultDecimalPlaces);
+            
+            // 모든 값이 있을 때 계산 과정 표시
+            if (currentMode === 'normal') {
+              showCalculationSteps(electrodeWeight, copperWeight, electrodeThickness, copperThickness, loading, density);
+            }
+          } else {
+            document.getElementById('electrodeDensity').value = '';
+            // 로딩레벨만 계산된 경우
+            if (currentMode === 'normal') {
+              showPartialCalculationSteps(electrodeWeight, copperWeight, loading);
+            }
+          }
+        } else {
+          document.getElementById('loadingLevel').value = '';
+          document.getElementById('electrodeDensity').value = '';
+          document.getElementById('calculationSteps').style.display = 'none';
+        }
+      } catch (e) {
+        document.getElementById('loadingLevel').value = '';
+        document.getElementById('electrodeDensity').value = '';
+        document.getElementById('calculationSteps').style.display = 'none';
+      }
+    }
+    
+    function showCalculationSteps(electrodeWeight, copperWeight, electrodeThickness, copperThickness, loading, density) {
+      const steps = document.getElementById('calculationSteps');
+      steps.innerHTML = `
+        <strong>계산 과정:</strong><br>
+        로딩레벨 = 1000 × (${electrodeWeight} - ${copperWeight}) / ${getPIFactor().toFixed(2)} = ${loading.toFixed(settings.resultDecimalPlaces)}<br>
+        전극밀도 = 10 × ${loading.toFixed(settings.resultDecimalPlaces)} / (${electrodeThickness} - ${copperThickness}) = ${density.toFixed(settings.resultDecimalPlaces)}
+      `;
+      steps.style.display = 'block';
+    }
+    
+    function showPartialCalculationSteps(electrodeWeight, copperWeight, loading) {
+      const steps = document.getElementById('calculationSteps');
+      steps.innerHTML = `
+        <strong>계산 과정:</strong><br>
+        로딩레벨 = 1000 × (${electrodeWeight} - ${copperWeight}) / ${getPIFactor().toFixed(2)} = ${loading.toFixed(settings.resultDecimalPlaces)}<br>
+        <span style="color: #999;">전극밀도: 전극두께와 구리두께 입력 필요</span>
+      `;
+      steps.style.display = 'block';
+    }
+    
+    // 역산 실행
+    function executeReverse(type) {
+      try {
+        if (type === 'weight' && currentMode === 'reverseWeight') {
+          const copperWeight = getValue('copperWeight');
+          const loading = getValue('loadingLevel');
+          
+          if (!loading) {
+            showFeedback('로딩레벨을 입력해주세요.', 'error');
+            return;
+          }
+          
+          const electrodeWeight = (loading * getPIFactor() / 1000) + copperWeight;
+          document.getElementById('electrodeWeight').value = electrodeWeight.toFixed(settings.weightDecimalPlaces).replace(/\.?0+$/, '');
+          updateCalculation();
+          showFeedback('전극무게가 역산되었습니다.', 'success');
+          
+        } else if (type === 'thickness' && currentMode === 'reverseThickness') {
+          const electrodeWeight = getValue('electrodeWeight');
+          const copperWeight = getValue('copperWeight');
+          const copperThickness = getValue('copperThickness');
+          const density = getValue('electrodeDensity');
+          
+          if (!density) {
+            showFeedback('전극밀도를 입력해주세요.', 'error');
+            return;
+          }
+          if (!electrodeWeight || !copperWeight) {
+            showFeedback('전극무게와 구리무게를 먼저 입력해주세요.', 'error');
+            return;
+          }
+          
+          const loading = 1000 * (electrodeWeight - copperWeight) / getPIFactor();
+          const electrodeThickness = safeDivision(10 * loading, density, '두께 역산') + copperThickness;
+          document.getElementById('electrodeThickness').value = electrodeThickness.toFixed(settings.thicknessDecimalPlaces);
+          updateCalculation();
+          showFeedback('전극두께가 역산되었습니다.', 'success');
+        }
+      } catch (e) {
+        showFeedback('역산 계산 중 오류가 발생했습니다.', 'error');
+      }
+    }
+    
+    // 저장
+    function saveRecord() {
+      try {
+        const electrodeWeight = getValue('electrodeWeight');
+        const copperWeight = getValue('copperWeight');
+        const electrodeThickness = getValue('electrodeThickness');
+        const copperThickness = getValue('copperThickness');
+        const loading = getValue('loadingLevel');
+        const density = getValue('electrodeDensity');
+        
+        if (!electrodeWeight || !copperWeight || !loading) {
+          showFeedback('전극무게와 구리무게는 필수입니다.', 'error');
+          return;
+        }
+        
+        const record = {
+          timestamp: new Date().toLocaleString(),
+          a: electrodeWeight,
+          b: copperWeight,
+          c: electrodeThickness || null,
+          d: copperThickness || null,
+          loading,
+          density: density || null,
+          memo: ''
+        };
+        
+        records.unshift(record);
+        if (records.length > settings.maxRecords) {
+          records = records.slice(0, settings.maxRecords);
+        }
+        
+        saveToStorage();
+        renderRecentRecords(); // 기록 목록 업데이트
+        showFeedback(`기록 #${records.length}이 저장되었습니다.`, 'success');
+        
+      } catch (e) {
+        showFeedback('저장 중 오류가 발생했습니다.', 'error');
+      }
+    }
+    
+    // 피드백 표시
+    function showFeedback(message, type) {
+      const feedback = document.getElementById('feedback');
+      feedback.textContent = message;
+      feedback.className = `feedback ${type}`;
+      feedback.classList.add('show');
+      
+      setTimeout(() => {
+        feedback.classList.remove('show');
+      }, 3000);
+    }
+    
+    // 초기 UI 설정
+    updateModeUI();
+    
+    // === 2단계: 최근 기록 및 설정 기능 ===
+    
+    // 무게 표시 형식 변환 (기록용)
+    function formatWeightForDisplay(weight) {
+      if (!weight || weight === 0) return '-';
+      
+      const weightStr = weight.toString();
+      const match = weightStr.match(/^0\.0*(\d+)$/);
+      
+      if (match) {
+        return match[1]; // 0.0 뒤의 숫자들만 반환
+      }
+      
+      return weight.toString();
+    }
+    
+    // 최근 기록 렌더링
+    function renderRecentRecords() {
+      const container = document.getElementById('recentRecordsList');
+      const countElement = document.getElementById('recentRecordsCount');
+      
+      countElement.textContent = records.length;
+      
+      if (records.length === 0) {
+        container.innerHTML = '<div class="no-records">저장된 기록이 없습니다.</div>';
+        return;
+      }
+      
+      const recentRecords = records.slice(0, 3); // 최근 3개만
+      
+      const tableHTML = `
+        <table class="records-table">
+          <thead class="records-table-header">
+            <tr>
+              <th>No.</th>
+              <th>무게</th>
+              <th>두께</th>
+              <th>L.L</th>
+              <th>E.D</th>
+<th><small>Cu<br>무게</small></th>
+<th><small>Cu<br>두께</small></th>
+              <th>메모</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${recentRecords.map((record, index) => {
+              const recordNumber = records.length - index;
+              const isRecent = index === 0; // 가장 최신 것만 표시
+              
+              return `
+                <tr class="${isRecent ? 'recent' : ''}" onclick="loadRecord(${index})">
+                  <td class="record-number">#${recordNumber}</td>
+                  <td>${formatWeightForDisplay(record.a)}</td>
+                  <td>${record.c || '-'}</td>
+                  <td>${record.loading.toFixed(settings.resultDecimalPlaces)}</td>
+                  <td>${record.density ? record.density.toFixed(settings.resultDecimalPlaces) : '-'}</td>
+                  <td>${formatWeightForDisplay(record.b)}</td>
+                  <td>${record.d || '-'}</td>
+                  <td onclick="event.stopPropagation();">
+                    <input type="text" class="memo-input" value="${record.memo || ''}" 
+                           maxlength="10" placeholder="메모" 
+                           onchange="updateMemo(${index}, this.value)" 
+                           style="width: 80px !important; max-width: 80px;" />
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+        <div style="font-size: 0.6em; color: #666; margin-top: 2px;">
+          * 무게는 ×10⁻⁵ 단위 (예: 0.025249 → 25249)
+        </div>
+      `;
+      
+      container.innerHTML = tableHTML;
+    }
+    
+    // 기록 불러오기
+    function loadRecord(index) {
+      const record = records[index];
+      if (!record) return;
+      
+      // 입력 필드에 값 설정
+      document.getElementById('electrodeWeight').value = record.a || '';
+      document.getElementById('copperWeight').value = record.b || '';
+      document.getElementById('electrodeThickness').value = record.c || '';
+      document.getElementById('copperThickness').value = record.d || '';
+      
+      // 계산 모드를 기본으로 설정
+      document.querySelector('input[value="normal"]').checked = true;
+      changeMode('normal');
+      
+      updateCalculation();
+      showFeedback(`기록 #${records.length - index}을 불러왔습니다.`, 'success');
+    }
+    
+    // 최근 기록 토글
+    function toggleRecentRecords() {
+      const container = document.getElementById('recentRecordsList');
+      const icon = document.getElementById('recentRecordsIcon');
+      
+      if (container.classList.contains('collapsed')) {
+        container.classList.remove('collapsed');
+        icon.textContent = '▼';
+      } else {
+        container.classList.add('collapsed');
+        icon.textContent = '▶';
+      }
+    }
+    
+    // 전체 기록 화면 표시 (3단계에서 구현)
+    function showAllRecords() {
+      currentScreen = 'records';
+      document.getElementById('mainScreen').style.display = 'none';
+      document.getElementById('recordScreen').style.display = 'block';
+      renderFullRecords();
+    }
+    
+    // 메인 화면으로 돌아가기
+    function showMainScreen() {
+      currentScreen = 'main';
+      document.getElementById('mainScreen').style.display = 'block';
+      document.getElementById('recordScreen').style.display = 'none';
+    }
+    
+    // 전체 기록 렌더링 (날짜별 그룹핑)
+    function renderFullRecords() {
+      const container = document.getElementById('groupedRecords');
+      const countElement = document.getElementById('totalRecordsCount');
+      const noRecordsMessage = document.getElementById('noRecordsMessage');
+      
+      countElement.textContent = records.length;
+      
+      if (records.length === 0) {
+        container.innerHTML = '';
+        noRecordsMessage.style.display = 'block';
+        return;
+      }
+      
+      noRecordsMessage.style.display = 'none';
+      
+      // 날짜별로 그룹핑
+      const groups = groupByDate(records);
+      
+      container.innerHTML = groups.map(group => {
+        const copperWeightText = group.copperWeight ? `${group.copperWeight}g` : '다양';
+        const copperThicknessText = group.copperThickness ? `${group.copperThickness}㎛` : '다양';
+        
+        return `
+          <div class="date-group">
+            <div class="date-group-header">
+              ■ ${group.date} (구리: ${copperWeightText}, ${copperThicknessText}) - ${group.records.length}개 기록
+            </div>
+            <table class="date-group-table">
+              <thead>
+                <tr>
+                  <th>No.</th>
+                  <th>무게</th>
+                  <th>두께</th>
+                  <th>L.L</th>
+                  <th>E.D</th>
+                  <th>메모</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                ${group.records.map(item => {
+                  const isRecent = item.originalIndex < 3;
+                  return `
+                    <tr class="${isRecent ? 'recent' : ''}" onclick="loadRecordFromFull(${item.originalIndex})">
+                      <td class="record-number">#${item.recordNumber}</td>
+                      <td>${formatWeightForDisplay(item.record.a)}</td>
+                      <td>${item.record.c || '-'}</td>
+                      <td>${item.record.loading.toFixed(settings.resultDecimalPlaces)}</td>
+                      <td>${item.record.density ? item.record.density.toFixed(settings.resultDecimalPlaces) : '-'}</td>
+                      <td onclick="event.stopPropagation();">
+                        <input type="text" class="full-memo-input" value="${item.record.memo || ''}" 
+                               maxlength="10" placeholder="메모" 
+                               onchange="updateMemo(${item.originalIndex}, this.value)" 
+                               style="width: 80px !important; max-width: 80px;" />
+                      </td>
+                      <td onclick="event.stopPropagation();">
+                        <button class="delete-record-btn" onclick="deleteRecord(${item.originalIndex})" title="삭제">×</button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }).join('');
+    }
+    
+    // 날짜별 그룹핑 함수
+    function groupByDate(records) {
+      const groups = {};
+      
+      records.forEach((record, index) => {
+        const recordNumber = records.length - index;
+        const date = record.timestamp ? record.timestamp.split(' ')[0] : '날짜 없음';
+        
+        if (!groups[date]) {
+          groups[date] = {
+            date: date,
+            records: [],
+            copperWeights: new Set(),
+            copperThicknesses: new Set()
+          };
+        }
+        
+        groups[date].records.push({
+          record: record,
+          recordNumber: recordNumber,
+          originalIndex: index
+        });
+        
+        // 구리값 수집
+        if (record.b) groups[date].copperWeights.add(record.b.toFixed(5));
+        if (record.d) groups[date].copperThicknesses.add(record.d.toString());
+      });
+      
+      // 그룹별 공통 구리값 계산
+      return Object.values(groups).map(group => {
+        // 모든 구리무게가 같으면 공통값으로 표시
+        const uniqueWeights = Array.from(group.copperWeights);
+        const uniqueThicknesses = Array.from(group.copperThicknesses);
+        
+        return {
+          date: group.date,
+          records: group.records,
+          copperWeight: uniqueWeights.length === 1 ? uniqueWeights[0] : null,
+          copperThickness: uniqueThicknesses.length === 1 ? uniqueThicknesses[0] : null
+        };
+      }).sort((a, b) => new Date(b.date) - new Date(a.date)); // 최신 날짜 순
+    }
+    
+    // 전체 기록에서 기록 불러오기 (메인 화면으로 이동)
+    function loadRecordFromFull(index) {
+      loadRecord(index); // 기존 함수 재사용
+      showMainScreen(); // 메인 화면으로 이동
+    }
+    
+    // 개별 기록 삭제
+    function deleteRecord(index) {
+      const recordNumber = records.length - index;
+      if (confirm(`기록 #${recordNumber}를 삭제하시겠습니까?`)) {
+        records.splice(index, 1);
+        saveToStorage();
+        renderFullRecords();
+        renderRecentRecords(); // 최근 기록도 업데이트
+        showFeedback(`기록 #${recordNumber}이 삭제되었습니다.`, 'success');
+      }
+    }
+    
+    // 모든 기록 삭제
+    function clearAllRecords() {
+      if (records.length === 0) {
+        showFeedback('삭제할 기록이 없습니다.', 'error');
+        return;
+      }
+      
+      if (confirm('모든 기록을 삭제하시겠습니까?')) {
+        records = [];
+        saveToStorage();
+        renderFullRecords();
+        renderRecentRecords(); // 최근 기록도 업데이트
+        showFeedback('모든 기록이 삭제되었습니다.', 'success');
+      }
+    }
+    
+    // 데이터 내보내기 (CSV 및 JSON 지원)
+    function exportData(format = 'csv') {
+      if (records.length === 0) {
+        showFeedback('내보낼 데이터가 없습니다.', 'error');
+        return;
+      }
+      
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        
+        if (format === 'csv') {
+          // CSV 형태로 내보내기
+          const headers = ['번호',   '저장일시',   '전극무게(g)',   '구리무게(g)',   '전극두께(μm)',   '구리두께(μm)',   '로딩레벨',   '전극밀도',   '메모'];
+          const csvData = records.map((record, index) => {
+            const recordNumber = records.length - index;
+            return [
+              recordNumber,
+              record.timestamp || '',
+              record.a || '',
+              record.b || '',
+              record.c || '',
+              record.d || '',
+              record.loading || '',
+              record.density || '',
+              record.memo || ''
+            ].join(',');
+          });
+          
+          const csvContent = [headers.join(','), ...csvData].join('\n');
+          const csvBlob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' }); // BOM 추가로 한글 지원
+          const csvUrl = URL.createObjectURL(csvBlob);
+          const csvLink = document.createElement('a');
+          csvLink.href = csvUrl;
+          csvLink.download = `전극데이터_${today}.csv`;
+          csvLink.click();
+          URL.revokeObjectURL(csvUrl);
+          
+          showFeedback('CSV 파일이 다운로드되었습니다.', 'success');
+          
+        } else {
+          // JSON 형태로 내보내기 (기존 방식)
+          const dataStr = JSON.stringify(records, null, 2);
+          const dataBlob = new Blob([dataStr], {type: 'application/json'});
+          const url = URL.createObjectURL(dataBlob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `전극데이터_${today}.json`;
+          link.click();
+          URL.revokeObjectURL(url);
+          
+          showFeedback('JSON 파일이 다운로드되었습니다.', 'success');
+        }
+      } catch (e) {
+        showFeedback('데이터 내보내기 중 오류가 발생했습니다.', 'error');
+      }
+    }
+    
+    // 설정 토글
+    function toggleSettings() {
+      const panel = document.getElementById('settingsPanel');
+      const icon = document.getElementById('settingsIcon');
+      
+      if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        icon.textContent = '▼';
+      } else {
+        panel.style.display = 'none';
+        icon.textContent = '▶';
+      }
+    }
+    
+    // 설정 업데이트
+    function updateSettings() {
+      // UI에서 값 읽어오기
+      const diameter = parseFloat(document.getElementById('electrodeDiameter').value) || 12;
+      const decimal = parseInt(document.getElementById('decimalPlaces').value) || 6;
+      const maxRec = parseInt(document.getElementById('maxRecords').value) || 50;
+      
+      // 설정 업데이트
+      const oldDiameter = settings.electrodeDiameter;
+      settings.electrodeDiameter = diameter;
+      settings.weightDecimalPlaces = Math.max(1, Math.min(10, decimal));
+      settings.maxRecords = Math.max(1, Math.min(1000, maxRec));
+      
+      // UI에 올바른 값 다시 설정 (범위 제한 적용된 값)
+      document.getElementById('electrodeDiameter').value = settings.electrodeDiameter;
+      document.getElementById('decimalPlaces').value = settings.weightDecimalPlaces;
+      document.getElementById('maxRecords').value = settings.maxRecords;
+      
+      // 지름이 변경된 경우에만 재계산
+      if (oldDiameter !== settings.electrodeDiameter) {
+        updateCalculation();
+      }
+      
+      // 최대 기록 수 초과시 자르기
+      if (records.length > settings.maxRecords) {
+        records = records.slice(0, settings.maxRecords);
+        renderRecentRecords();
+      }
+      
+      saveToStorage();
+    }
+    
+    // 메모 업데이트
+    function updateMemo(index, memo) {
+      if (records[index]) {
+        records[index].memo = memo.slice(0, 10); // 10자 제한
+        saveToStorage();
+      }
+    }
+  </script>
+</body>
+</html>
