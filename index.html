@@ -592,8 +592,8 @@
       updateCalculation();
       // === 추가: 전류값계산 입력 이벤트 연결 ===
       if(document.getElementById('activeMaterialRatio') && document.getElementById('expectedCapacity')) {
-        document.getElementById('activeMaterialRatio').addEventListener('input', renderCurrentCalcTable);
-        document.getElementById('expectedCapacity').addEventListener('input', renderCurrentCalcTable);
+document.getElementById('activeMaterialRatio').addEventListener('input', renderCurrentCalcTableForCurrentScreen);
+document.getElementById('expectedCapacity').addEventListener('input', renderCurrentCalcTableForCurrentScreen);
       }
     });
     
@@ -1288,8 +1288,7 @@
       if(document.getElementById('currentCalcFormula')) document.getElementById('currentCalcFormula').innerHTML = '';
       if(document.getElementById('currentCalcTable')) document.getElementById('currentCalcTable').innerHTML = '';
     }
-
-    function renderCurrentCalcTable() {
+    function renderCurrentCalcTableForCurrentScreen() {
       const ratioInput = document.getElementById('activeMaterialRatio');
       const capInput = document.getElementById('expectedCapacity');
       const formulaDiv = document.getElementById('currentCalcFormula');
@@ -1305,23 +1304,31 @@
       // 계산식 표기
       formulaDiv.innerHTML = '계산식: <b>전류밀도 = 활물질비율 × 예상용량 × (전극무게 - 구리무게) × C-rate</b>';
       // 표 생성
-      const cRates = [0.05, 0.1, 0.2, 0.5, 1, 2, 3];
-      let html = '<table class="records-table"><thead><tr><th>No.</th><th>전극무게</th><th>구리무게</th>';
+      const cRates = [0.1, 0.2, 0.5, 3];
+
+      let html = '<table class="records-table"><thead><tr><th>No.</th><th>활물질무게</th>';
       cRates.forEach(c => html += `<th>${c}C</th>`);
       html += '</tr></thead><tbody>';
       records.forEach((rec, idx) => {
-        html += `<tr><td>#${records.length - idx}</td><td>${rec.a}</td><td>${rec.b}</td>`;
+        // 각 행마다 활물질무게 계산
+        const activeMaterialWeight = (rec.a - rec.b) / (ratio / 100);
+        html += `<tr><td>#${records.length - idx}</td><td>${activeMaterialWeight.toFixed(5)}</td>`;
         cRates.forEach(c => {
           const currentDensity = (ratio / 100) * cap * (rec.a - rec.b) * c;
-          html += `<td>${isNaN(currentDensity) ? '-' : currentDensity.toFixed(4)}</td>`;
+          html += `<td>${isNaN(currentDensity) ? '-' : currentDensity.toFixed(5)}</td>`;
         });
         html += '</tr>';
       });
       html += '</tbody></table>';
       tableDiv.innerHTML = html;
     }
-    // === 전류값계산 기능 끝 ===
 
+    // 입력값 변경 시 자동 갱신
+    document.getElementById('activeMaterialRatio').addEventListener('input', renderCurrentCalcTableForCurrentScreen);
+    document.getElementById('expectedCapacity').addEventListener('input', renderCurrentCalcTableForCurrentScreen);
+
+    // 최초 실행
+    renderCurrentCalcTableForCurrentScreen();
   </script>
 </body>
 </html>
